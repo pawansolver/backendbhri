@@ -9,11 +9,11 @@ const Slot = sequelize.define('Slot', {
     },
     doctorId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'doctors',
-            key: 'id',
-        },
+        allowNull: true,
+    },
+    departmentId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
     },
     date: {
         type: DataTypes.DATEONLY,

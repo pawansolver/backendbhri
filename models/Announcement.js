@@ -1,36 +1,27 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const Department = sequelize.define('Department', {
+const Announcement = sequelize.define('Announcement', {
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
     },
-    name: {
-        type: DataTypes.STRING(100),
+    title: {
+        type: DataTypes.STRING,
         allowNull: false,
     },
-    nameHi: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
-    },
-    description: {
+    content: {
         type: DataTypes.TEXT,
-        allowNull: true,
-    },
-    icon: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-    },
-    image: {
-        type: DataTypes.STRING(500),
-        allowNull: true,
-    },
-    consultationFee: {
-        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
-        defaultValue: 0,
+    },
+    thumbnail: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    pdfAttachment: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     isActive: {
         type: DataTypes.BOOLEAN,
@@ -42,7 +33,6 @@ const Department = sequelize.define('Department', {
     },
 }, {
     timestamps: true,
-    tableName: 'departments',
 });
 
-module.exports = Department;
+module.exports = Announcement;

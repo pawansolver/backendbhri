@@ -77,8 +77,16 @@ const getById = async (req, res) => {
 // CREATE
 const create = async (req, res) => {
     try {
-        const { name, nameHi, description, icon, image, sortOrder } = req.body;
-        const department = await Department.create({ name, nameHi, description, icon, image, sortOrder });
+        const { name, nameHi, description, icon, image, consultationFee, sortOrder } = req.body;
+        const department = await Department.create({
+            name,
+            nameHi,
+            description,
+            icon,
+            image,
+            consultationFee: consultationFee || 0,
+            sortOrder,
+        });
         res.status(201).json({ success: true, message: 'Department created successfully', data: department });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });

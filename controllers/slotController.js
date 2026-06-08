@@ -38,9 +38,35 @@ const autoGenerateSlots = async (doctor, date) => {
 // GET AVAILABLE SLOTS - Public (ADMIN-CONTROLLED - only returns manually set slots)
 const getAvailableSlots = async (req, res) => {
     try {
-        const { doctorId, date } = req.query;
-        if (!doctorId || !date) {
-            return res.status(400).json({ success: false, message: 'doctorId and date are required' });
+        const { doctorId, departmentId, date } = req.query;
+        if ((!doctorId && !departmentId) || !date) {
+            return res.status(400).json({ success: false, message: 'doctorId or departmentId and date are required' });
+        }
+
+        if (departmentId) {
+            const department = await Department.findByPk(departmentId);
+            if (!department) {
+                return res.status(404).json({ success: false, message: 'Department not found' });
+            }
+
+            if (!department.isActive) {
+                return res.json({ success: true, data: [], message: 'Department is not active' });
+            }
+
+            const slots = await Slot.findAll({
+                where: { departmentId, date, isBooked: false, isBlocked: false },
+                order: [['startTime', 'ASC']],
+            });
+
+            return res.json({
+                success: true,
+                data: slots,
+                message: slots.length === 0 ? 'Admin ne is department/date ke liye slots set nahi kiye' : undefined,
+                schedule: {
+                    departmentName: department.name,
+                    consultationFee: department.consultationFee,
+                },
+            });
         }
 
         const doctor = await Doctor.findByPk(doctorId);
@@ -52,7 +78,6 @@ const getAvailableSlots = async (req, res) => {
             return res.json({ success: true, data: [], message: 'Doctor is not active' });
         }
 
-        // Check if today is an available day
         const dayName = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
         if (doctor.availableDays && !doctor.availableDays.includes(dayName)) {
             return res.json({ success: true, data: [], message: `Doctor not available on ${dayName}` });
@@ -78,6 +103,7 @@ const getAvailableSlots = async (req, res) => {
             },
         });
     } catch (error) {
+        console.error('createSlot error:', error);
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
     }
 };
@@ -86,19 +112,23 @@ const getAvailableSlots = async (req, res) => {
 // Pass limit=0 to fetch ALL records without pagination
 const getAllAdmin = async (req, res) => {
     try {
-        const { page = 1, limit = 0, doctorId, date, isBooked, isBlocked } = req.query;
+        const { page = 1, limit = 0, doctorId, departmentId, date, isBooked, isBlocked } = req.query;
         const parsedLimit = parseInt(limit, 10);
         const parsedPage = parseInt(page, 10);
         const where = {};
 
         if (doctorId) where.doctorId = doctorId;
+        if (departmentId) where.departmentId = departmentId;
         if (date) where.date = date;
         if (isBooked !== undefined) where.isBooked = isBooked === 'true';
         if (isBlocked !== undefined) where.isBlocked = isBlocked === 'true';
 
         const queryOptions = {
             where,
-            include: [{ model: Doctor, as: 'doctor', attributes: ['id', 'name'], include: [{ model: Department, as: 'department', attributes: ['id', 'name'] }] }],
+            include: [
+                { model: Doctor, as: 'doctor', attributes: ['id', 'name'], include: [{ model: Department, as: 'department', attributes: ['id', 'name'] }], required: false },
+                { model: Department, as: 'department', attributes: ['id', 'name', 'consultationFee'], required: false },
+            ],
             order: [['date', 'DESC'], ['startTime', 'ASC']],
         };
 
@@ -128,7 +158,10 @@ const getAllAdmin = async (req, res) => {
 const getById = async (req, res) => {
     try {
         const slot = await Slot.findByPk(req.params.id, {
-            include: [{ model: Doctor, as: 'doctor', include: [{ model: Department, as: 'department' }] }],
+            include: [
+                { model: Doctor, as: 'doctor', include: [{ model: Department, as: 'department' }], required: false },
+                { model: Department, as: 'department', required: false },
+            ],
         });
         if (!slot) {
             return res.status(404).json({ success: false, message: 'Slot not found' });
@@ -142,23 +175,39 @@ const getById = async (req, res) => {
 // CREATE SINGLE SLOT - Admin
 const createSlot = async (req, res) => {
     try {
-        const { doctorId, date, startTime, endTime } = req.body;
+        const { doctorId, departmentId, date, startTime, endTime } = req.body;
 
-        if (!doctorId || !date || !startTime || !endTime) {
-            return res.status(400).json({ success: false, message: 'doctorId, date, startTime, endTime are required' });
+        if ((!doctorId && !departmentId) || !date || !startTime || !endTime) {
+            return res.status(400).json({ success: false, message: 'doctorId or departmentId, date, startTime, endTime are required' });
         }
 
-        const doctor = await Doctor.findByPk(doctorId);
-        if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        if (departmentId) {
+            const department = await Department.findByPk(departmentId);
+            if (!department) {
+                return res.status(404).json({ success: false, message: 'Department not found' });
+            }
+        } else {
+            const doctor = await Doctor.findByPk(doctorId);
+            if (!doctor) {
+                return res.status(404).json({ success: false, message: 'Doctor not found' });
+            }
         }
 
-        const existing = await Slot.findOne({ where: { doctorId, date, startTime } });
+        const where = departmentId ? { departmentId, date, startTime } : { doctorId, date, startTime };
+        const existing = await Slot.findOne({ where });
         if (existing) {
             return res.status(400).json({ success: false, message: `Slot ${startTime} already exists for this date` });
         }
 
-        const slot = await Slot.create({ doctorId, date, startTime, endTime, isBooked: false, isBlocked: false });
+        const slot = await Slot.create({
+            doctorId: doctorId || null,
+            departmentId: departmentId || null,
+            date,
+            startTime,
+            endTime,
+            isBooked: false,
+            isBlocked: false,
+        });
         res.status(201).json({ success: true, message: `Slot ${startTime} created successfully`, data: slot });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -168,16 +217,23 @@ const createSlot = async (req, res) => {
 // CREATE MULTIPLE CUSTOM SLOTS - Admin (bulk custom times at once)
 const createCustomSlotsBulk = async (req, res) => {
     try {
-        const { doctorId, date, times, duration = 15 } = req.body;
+        const { doctorId, departmentId, date, times, duration = 15 } = req.body;
         // times: ['09:00', '10:30', '14:00']
 
-        if (!doctorId || !date || !Array.isArray(times) || times.length === 0) {
-            return res.status(400).json({ success: false, message: 'doctorId, date, and times[] array required' });
+        if ((!doctorId && !departmentId) || !date || !Array.isArray(times) || times.length === 0) {
+            return res.status(400).json({ success: false, message: 'doctorId or departmentId, date, and times[] array required' });
         }
 
-        const doctor = await Doctor.findByPk(doctorId);
-        if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        if (departmentId) {
+            const department = await Department.findByPk(departmentId);
+            if (!department) {
+                return res.status(404).json({ success: false, message: 'Department not found' });
+            }
+        } else {
+            const doctor = await Doctor.findByPk(doctorId);
+            if (!doctor) {
+                return res.status(404).json({ success: false, message: 'Doctor not found' });
+            }
         }
 
         let added = 0;
@@ -191,13 +247,22 @@ const createCustomSlotsBulk = async (req, res) => {
                 const totalMins = h * 60 + m + parseInt(duration);
                 const endTime = `${String(Math.floor(totalMins / 60)).padStart(2, '0')}:${String(totalMins % 60).padStart(2, '0')}`;
 
-                const existing = await Slot.findOne({ where: { doctorId, date, startTime } });
+                const where = departmentId ? { departmentId, date, startTime } : { doctorId, date, startTime };
+                const existing = await Slot.findOne({ where });
                 if (existing) {
                     skipped++;
                     continue;
                 }
 
-                await Slot.create({ doctorId, date, startTime, endTime, isBooked: false, isBlocked: false });
+                await Slot.create({
+                    doctorId: doctorId || null,
+                    departmentId: departmentId || null,
+                    date,
+                    startTime,
+                    endTime,
+                    isBooked: false,
+                    isBlocked: false,
+                });
                 added++;
             } catch (err) {
                 errors.push(`${startTime}: ${err.message}`);
@@ -383,14 +448,19 @@ const deleteSlot = async (req, res) => {
 // DELETE ALL SLOTS FOR A DATE
 const deleteSlotsByDate = async (req, res) => {
     try {
-        const { doctorId, date } = req.body;
+        const { doctorId, departmentId, date } = req.body;
+        if ((!doctorId && !departmentId) || !date) {
+            return res.status(400).json({ success: false, message: 'doctorId or departmentId and date are required' });
+        }
 
-        const bookedCount = await Slot.count({ where: { doctorId, date, isBooked: true } });
+        const where = departmentId ? { departmentId, date } : { doctorId, date };
+
+        const bookedCount = await Slot.count({ where: { ...where, isBooked: true } });
         if (bookedCount > 0) {
             return res.status(400).json({ success: false, message: `Cannot delete: ${bookedCount} slots are already booked` });
         }
 
-        const deleted = await Slot.destroy({ where: { doctorId, date, isBooked: false } });
+        const deleted = await Slot.destroy({ where: { ...where, isBooked: false } });
         res.json({ success: true, message: `${deleted} slots deleted for ${date}` });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });

@@ -10,7 +10,7 @@ const swaggerSpec = require('./config/swagger');
 const bcrypt = require('bcryptjs');
 
 // Import Models (registers them with Sequelize)
-const { User, Department, Doctor, Slot, Appointment, AppSetting, Notification } = require('./models');
+const { User, Department, Doctor, Slot, Appointment, AppSetting, Contact, Notification } = require('./models');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -22,6 +22,9 @@ const settingRoutes = require('./routes/settingRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const exportRoutes = require('./routes/exportRoutes');
+const noticeRoutes = require('./routes/noticeRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
+const eventRoutes = require('./routes/eventRoutes');
 
 const app = express();
 
@@ -46,6 +49,9 @@ app.use('/api/settings', settingRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/notices', noticeRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/events', eventRoutes);
 
 // Request logger for debugging
 app.use('/api', (req, res, next) => {
@@ -109,7 +115,7 @@ const startServer = async () => {
     try {
         await connectDB();
 
-        await sequelize.sync({ force: false, alter: false });
+        await sequelize.sync({ force: false, alter: true });
         console.log('MySQL Models Synced!');
 
         await seedAdmin();

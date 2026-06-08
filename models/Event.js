@@ -1,48 +1,46 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const Department = sequelize.define('Department', {
+const Event = sequelize.define('Event', {
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
     },
-    name: {
-        type: DataTypes.STRING(100),
+    title: {
+        type: DataTypes.STRING,
         allowNull: false,
-    },
-    nameHi: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
     },
     description: {
         type: DataTypes.TEXT,
+        allowNull: false,
+    },
+    eventDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: false,
+    },
+    eventTime: {
+        type: DataTypes.STRING(10),
         allowNull: true,
     },
-    icon: {
+    venue: {
         type: DataTypes.STRING(255),
         allowNull: true,
     },
-    image: {
-        type: DataTypes.STRING(500),
+    thumbnail: {
+        type: DataTypes.STRING,
         allowNull: true,
     },
-    consultationFee: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0,
+    pdfAttachment: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     isActive: {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
     },
-    sortOrder: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0,
-    },
 }, {
     timestamps: true,
-    tableName: 'departments',
 });
 
-module.exports = Department;
+module.exports = Event;

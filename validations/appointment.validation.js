@@ -13,7 +13,7 @@ const appointmentValidation = {
         aadhaar: Joi.string().pattern(/^\d{12}$/).optional().allow('', null),
         email: Joi.string().email().optional().allow('', null),
         departmentId: Joi.number().integer().required(),
-        doctorId: Joi.number().integer().required(),
+        doctorId: Joi.number().integer().optional().allow(null),
         slotId: Joi.number().integer().required(),
         date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
         time: Joi.string().required(),

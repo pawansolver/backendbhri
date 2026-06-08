@@ -1,6 +1,9 @@
 const { Appointment, Slot, Doctor, Department, Notification } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { generateQRDataUrl } = require('../services/qrCodeService');
+const { generateSlipPDF }   = require('../services/pdfSlipService');
+const { buildWhatsappLink } = require('../services/whatsappService');
 
 const generateAppointmentId = (date) => {
     const dateStr = date.replace(/-/g, '');
@@ -19,15 +22,19 @@ const bookAppointment = async (req, res) => {
             await transaction.rollback();
             return res.status(404).json({ success: false, message: 'Slot not found' });
         }
+        if (Number(slot.departmentId || 0) !== Number(departmentId) && Number(slot.doctorId || 0) !== Number(doctorId || 0)) {
+            await transaction.rollback();
+            return res.status(400).json({ success: false, message: 'Selected slot does not belong to selected department/doctor' });
+        }
         if (slot.isBooked || slot.isBlocked) {
             await transaction.rollback();
             return res.status(400).json({ success: false, message: 'Slot is not available' });
         }
 
-        const todayCount = await Appointment.count({
-            where: { doctorId, date, status: { [Op.ne]: 'cancelled' } },
-            transaction,
-        });
+        const tokenWhere = doctorId
+            ? { doctorId, date, status: { [Op.ne]: 'cancelled' } }
+            : { departmentId, date, status: { [Op.ne]: 'cancelled' } };
+        const todayCount = await Appointment.count({ where: tokenWhere, transaction });
 
         const tokenNumber = todayCount + 1;
         const appointmentId = generateAppointmentId(date);
@@ -35,7 +42,7 @@ const bookAppointment = async (req, res) => {
         const appointment = await Appointment.create({
             appointmentId, tokenNumber, patientName, gender, age, mobile, address, symptoms,
             aadhaar: aadhaar || null, email: email || null,
-            departmentId, doctorId, slotId, date, time, status: 'confirmed',
+            departmentId, doctorId: doctorId || null, slotId, date, time, status: 'confirmed',
         }, { transaction });
 
         await slot.update({ isBooked: true }, { transaction });
@@ -49,16 +56,43 @@ const bookAppointment = async (req, res) => {
 
         await transaction.commit();
 
+        // ── Post-commit: fetch full record for slip generation ──────────────
+        const fullAppointment = await Appointment.findByPk(appointment.id, {
+            include: [
+                { model: Department, as: 'department', attributes: ['id', 'name'] },
+                { model: Doctor,     as: 'doctor',     attributes: ['id', 'name', 'qualification'], required: false },
+            ],
+        });
+
+        // ── Generate QR code Data URL (embed in frontend response) ──────────
+        let qrCodeDataUrl = null;
+        try {
+            qrCodeDataUrl = await generateQRDataUrl(appointment.appointmentId);
+        } catch (qrErr) {
+            console.error('QR generation warning:', qrErr.message);
+        }
+
+        // ── Build public slip URL ────────────────────────────────────────────
+        const BASE_URL  = process.env.BASE_URL || 'http://localhost:5000';
+        const slipUrl   = `${BASE_URL}/api/appointments/slip/${appointment.appointmentId}`;
+
+        // ── Build WhatsApp deep-link (auto-detects patient mobile) ──────────
+        const whatsappLink = buildWhatsappLink(fullAppointment, slipUrl);
+
         res.status(201).json({
             success: true,
             message: 'Appointment booked successfully',
             data: {
                 appointmentId: appointment.appointmentId,
-                tokenNumber: appointment.tokenNumber,
-                patientName: appointment.patientName,
-                date: appointment.date,
-                time: appointment.time,
-                status: appointment.status,
+                tokenNumber:   appointment.tokenNumber,
+                patientName:   appointment.patientName,
+                date:          appointment.date,
+                time:          appointment.time,
+                status:        appointment.status,
+                // ── New fields ────────────────────────────────────────────
+                slipUrl,                       // public PDF download URL
+                whatsappLink,                  // wa.me pre-filled link
+                qrCodeDataUrl,                 // base64 PNG for frontend preview
             },
         });
     } catch (error) {
@@ -283,8 +317,55 @@ const getReport = async (req, res) => {
     }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DOWNLOAD SLIP — Public (no auth required)
+// GET /api/appointments/slip/:appointmentId
+// ─────────────────────────────────────────────────────────────────────────────
+const downloadSlip = async (req, res) => {
+    try {
+        const { appointmentId } = req.params;
+
+        // Fetch full appointment with relations
+        const appointment = await Appointment.findOne({
+            where: { appointmentId },
+            include: [
+                { model: Department, as: 'department', attributes: ['id', 'name'] },
+                { model: Doctor,     as: 'doctor',     attributes: ['id', 'name', 'qualification'] },
+            ],
+        });
+
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Appointment not found. Please check your Appointment ID.',
+            });
+        }
+
+        // Generate PDF slip
+        const pdfBuffer = await generateSlipPDF(appointment);
+
+        const filename = `BHRI_Slip_${appointment.appointmentId}_Token${appointment.tokenNumber}.pdf`;
+
+        res.setHeader('Content-Type',        'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        res.setHeader('Content-Length',      pdfBuffer.length);
+        res.setHeader('Cache-Control',       'no-store');
+
+        return res.send(pdfBuffer);
+    } catch (error) {
+        console.error('Slip generation error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Could not generate appointment slip.',
+                error:   error.message,
+            });
+        }
+    }
+};
+
 module.exports = {
     bookAppointment, getAll, getById, searchByMobile,
     updateStatus, updateAppointment, deleteAppointment,
-    getTodayStats, getReport,
+    getTodayStats, getReport, downloadSlip,
 };
