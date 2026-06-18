@@ -10,7 +10,7 @@ const swaggerSpec = require('./config/swagger');
 const bcrypt = require('bcryptjs');
 
 // Import Models (registers them with Sequelize)
-const { User, Department, Doctor, Slot, Appointment, AppSetting, Contact, Notification } = require('./models');
+const { User, Department, Doctor, Faculty, Slot, Appointment, AppSetting, Contact, Notification } = require('./models');
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -25,6 +25,7 @@ const exportRoutes = require('./routes/exportRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const eventRoutes = require('./routes/eventRoutes');
+const facultyRoutes = require('./routes/facultyRoutes');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/faculty', facultyRoutes);
 
 // Request logger for debugging
 app.use('/api', (req, res, next) => {
@@ -115,7 +117,7 @@ const startServer = async () => {
     try {
         await connectDB();
 
-        await sequelize.sync({ force: false, alter: true });
+        await sequelize.sync({ force: false, alter: false });
         console.log('MySQL Models Synced!');
 
         await seedAdmin();

@@ -1,6 +1,7 @@
 const User = require('./User');
 const Department = require('./Department');
 const Doctor = require('./Doctor');
+const Faculty = require('./Faculty');
 const Slot = require('./Slot');
 const Appointment = require('./Appointment');
 const AppSetting = require('./AppSetting');
@@ -37,6 +38,7 @@ module.exports = {
     User,
     Department,
     Doctor,
+    Faculty,
     Slot,
     Appointment,
     AppSetting,
