@@ -31,7 +31,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: true,
+    origin: [ "https://bhrimedicalcollege.com" , "https://www.bhrimedicalcollege.com" , "https://admin.bhrimedicalcollege.com" ],
     credentials: true,
 }));
 app.use(express.json());
