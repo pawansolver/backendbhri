@@ -1,5 +1,7 @@
 const { Doctor, Department, Slot, Appointment } = require('../models');
 const { Op } = require('sequelize');
+const path = require('path');
+const fs = require('fs');
 
 // GET ALL - Public (only active)
 const getAll = async (req, res) => {
@@ -144,7 +146,23 @@ const update = async (req, res) => {
         }
 
         const updateData = { ...req.body };
-        if (req.file) updateData.photo = `/uploads/doctors/${req.file.filename}`;
+
+        if (req.file) {
+            // Delete old photo from disk before saving new one
+            if (doctor.photo && doctor.photo.startsWith('/uploads/')) {
+                const oldPath = path.join(__dirname, '..', doctor.photo);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.photo = `/uploads/doctors/${req.file.filename}`;
+        } else if (req.body.removePhoto === 'true') {
+            // Admin explicitly removed the photo
+            if (doctor.photo && doctor.photo.startsWith('/uploads/')) {
+                const oldPath = path.join(__dirname, '..', doctor.photo);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.photo = null;
+        }
+        delete updateData.removePhoto;
 
         const scheduleFields = ['opdStartTime', 'opdEndTime', 'slotDuration', 'availableDays', 'maxDailyPatients'];
         const scheduleChanged = scheduleFields.some((field) => (
@@ -227,6 +245,11 @@ const hardDelete = async (req, res) => {
         }
 
         await Slot.destroy({ where: { doctorId: req.params.id } });
+        // Delete photo from disk if local
+        if (doctor.photo && doctor.photo.startsWith('/uploads/')) {
+            const filePath = path.join(__dirname, '..', doctor.photo);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
         await doctor.destroy();
         res.json({ success: true, message: 'Doctor permanently deleted' });
     } catch (error) {

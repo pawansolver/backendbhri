@@ -235,9 +235,17 @@ const update = async (req, res) => {
                 if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
             }
             updateData.photo = `/uploads/faculty/${req.file.filename}`;
+        } else if (req.body.removePhoto === 'true') {
+            // Admin explicitly removed the photo — delete file from disk and clear DB
+            if (member.photo && member.photo.startsWith('/uploads/')) {
+                const oldPath = path.join(__dirname, '..', member.photo);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.photo = null;
         }
-        // Remove any stray 'image' key (old field name) from body
+        // Remove any stray 'image' / 'removePhoto' keys from body before DB update
         delete updateData.image;
+        delete updateData.removePhoto;
 
         // Parse tags if sent as a string
         if (updateData.tags && typeof updateData.tags === 'string') {
