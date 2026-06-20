@@ -5,6 +5,8 @@ const path       = require('path');
 const fs         = require('fs');
 const controller = require('../controllers/facultyController');
 const { protect } = require('../middleware/authMiddleware');
+const validate = require('../middleware/validate');
+const { facultyValidation } = require('../validations/faculty.validation');
 
 // ── Photo Upload Setup ──────────────────────────────────
 const uploadDir = path.join(__dirname, '..', 'uploads', 'faculty');
@@ -68,17 +70,17 @@ router.get('/admin/all', protect, controller.getAllAdmin);
 //   multipart/form-data — fields: name*, designation*, department*, credentials,
 //   specialty, experience, nameHindi, tags, displayOrder, isActive
 //   File field: photo  (jpg/png/webp, max 5MB)
-router.post('/', protect, handleUpload, controller.create);
+router.post('/', protect, handleUpload, validate(facultyValidation.create), controller.create);
 
 // POST /api/faculty/bulk
 //   JSON body: { faculty: [ { name, designation, department, ... }, ... ] }
 //   Accepts aliases: role → designation, dept → department, exp → experience, image → photo
-router.post('/bulk', protect, controller.bulkImport);
+router.post('/bulk', protect, validate(facultyValidation.bulkImport), controller.bulkImport);
 
 // PUT /api/faculty/:id
 //   Same body shape as POST — all fields optional (only provided fields are updated)
 //   File field: photo  (replaces old photo file on disk)
-router.put('/:id', protect, handleUpload, controller.update);
+router.put('/:id', protect, handleUpload, validate(facultyValidation.update), controller.update);
 
 // PATCH /api/faculty/:id/toggle-status
 //   Toggles isActive (show / hide on website)

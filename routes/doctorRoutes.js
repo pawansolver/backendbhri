@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const controller = require('../controllers/doctorController');
 const { protect } = require('../middleware/authMiddleware');
+const validate = require('../middleware/validate');
+const { doctorValidation } = require('../validations/doctor.validation');
 
 // Ensure the upload directory exists before multer tries to write to it
 const uploadDir = path.join(__dirname, '..', 'uploads', 'doctors');
@@ -51,11 +53,11 @@ router.get('/', controller.getAll);
 router.get('/:id', controller.getById);
 
 // Admin CRUD — use handleUpload wrapper instead of upload.single directly
-router.post('/', protect, handleUpload, controller.create);
-router.put('/:id', protect, handleUpload, controller.update);
+router.post('/', protect, handleUpload, validate(doctorValidation.create), controller.create);
+router.put('/:id', protect, handleUpload, validate(doctorValidation.update), controller.update);
 router.delete('/:id', protect, controller.remove);
 router.delete('/:id/permanent', protect, controller.hardDelete);
 router.patch('/:id/toggle-status', protect, controller.toggleStatus);
-router.patch('/:id/schedule', protect, controller.updateSchedule);
+router.patch('/:id/schedule', protect, validate(doctorValidation.updateSchedule), controller.updateSchedule);
 
 module.exports = router;

@@ -7,6 +7,9 @@ const {
     updateContactStatus,
     deleteContact
 } = require('../controllers/contactController');
+const validate = require('../middleware/validate');
+const { contactValidation } = require('../validations/contact.validation');
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -46,7 +49,7 @@ const router = express.Router();
  *       201:
  *         description: Message sent successfully
  */
-router.post('/', createContact);
+router.post('/', validate(contactValidation.create), createContact);
 
 /**
  * @swagger
@@ -58,7 +61,7 @@ router.post('/', createContact);
  *       200:
  *         description: List of all contacts
  */
-router.get('/', getAllContacts);
+router.get('/', protect, getAllContacts);
 
 /**
  * @swagger
@@ -76,7 +79,7 @@ router.get('/', getAllContacts);
  *       200:
  *         description: Contact details
  */
-router.get('/:id', getContactById);
+router.get('/:id', protect, getContactById);
 
 /**
  * @swagger
@@ -109,7 +112,7 @@ router.get('/:id', getContactById);
  *       200:
  *         description: Contact updated successfully
  */
-router.put('/:id', updateContact);
+router.put('/:id', protect, validate(contactValidation.update), updateContact);
 
 /**
  * @swagger
@@ -139,7 +142,7 @@ router.put('/:id', updateContact);
  *       200:
  *         description: Contact status updated
  */
-router.patch('/:id/status', updateContactStatus);
+router.patch('/:id/status', protect, validate(contactValidation.updateStatus), updateContactStatus);
 
 /**
  * @swagger
@@ -157,6 +160,6 @@ router.patch('/:id/status', updateContactStatus);
  *       200:
  *         description: Contact message deleted
  */
-router.delete('/:id', deleteContact);
+router.delete('/:id', protect, deleteContact);
 
 module.exports = router;
