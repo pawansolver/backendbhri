@@ -29,5 +29,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
+  },
+  "optionalDependencies": {
+    "fontkit": "^2.0.4"
   }
 }

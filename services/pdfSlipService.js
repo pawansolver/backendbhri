@@ -23,23 +23,36 @@ const PDFDocument = require('pdfkit');
 const { generateQRBuffer } = require('./qrCodeService');
 
 // Devanagari fonts need a fontkit null-anchor guard (foliojs/fontkit#354)
+// FIX: Use require.resolve('fontkit') — NOT require.resolve('fontkit/dist/main.cjs')
+// Newer Node.js enforces package "exports" strictly — subpath './dist/main.cjs' is not
+// exported by fontkit, so it throws on live servers. require.resolve('fontkit') resolves
+// to the same file via the package's main/exports "." entry — works on all environments.
 (() => {
     try {
-        const fontkitPath = require.resolve('fontkit/dist/main.cjs');
-        const guard = 'if (!anchor) return { x: 0, y: 0 };';
+        // Resolve fontkit's actual file path via its package entry (not restricted subpath)
+        const fontkitPath = require.resolve('fontkit');
+
+        // Guard string — check WITHOUT trailing punctuation so it matches
+        // whether a previous patch used ';' or ',' (both mean the patch is present)
+        const guardCheck = 'if (!anchor) return { x: 0, y: 0 }';
+        const guardInsert = 'if (!anchor) return { x: 0, y: 0 };';
+
         let src = fs.readFileSync(fontkitPath, 'utf8');
-        if (!src.includes(guard)) {
+        if (!src.includes(guardCheck)) {
             const regex = /(getAnchor\s*\(\s*anchor\s*\)\s*\{[\s\S]*?)(\s*let\s+x\s*=\s*anchor\.xCoordinate;)/;
             if (regex.test(src)) {
-                src = src.replace(regex, `$1\n        ${guard}$2`);
+                src = src.replace(regex, `$1\n        ${guardInsert}$2`);
                 fs.writeFileSync(fontkitPath, src);
                 delete require.cache[fontkitPath];
+                console.log('fontkit getAnchor patch applied successfully.');
             } else {
-                console.warn("Could not patch fontkit: getAnchor pattern not found.");
+                console.warn('Could not patch fontkit: getAnchor pattern not found (fontkit version may have changed).');
             }
         }
     } catch (err) {
-        console.error("Fontkit layout patch failed:", err.message);
+        console.error('Fontkit layout patch failed:', err.message);
+        // NOTE: If patch fails, PDF generation with Devanagari (Hindi) text may crash.
+        // Ensure fontkit is installed: npm install fontkit
     }
 })();
 
