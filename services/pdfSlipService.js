@@ -29,14 +29,18 @@ const { generateQRBuffer } = require('./qrCodeService');
         const guard = 'if (!anchor) return { x: 0, y: 0 };';
         let src = fs.readFileSync(fontkitPath, 'utf8');
         if (!src.includes(guard)) {
-            src = src.replace(
-                '    getAnchor(anchor) {\n        // TODO: contour point, device tables\n        let x = anchor.xCoordinate;',
-                `    getAnchor(anchor) {\n        // TODO: contour point, device tables\n        ${guard}\n        let x = anchor.xCoordinate;`
-            );
-            fs.writeFileSync(fontkitPath, src);
-            delete require.cache[fontkitPath];
+            const regex = /(getAnchor\s*\(\s*anchor\s*\)\s*\{[\s\S]*?)(\s*let\s+x\s*=\s*anchor\.xCoordinate;)/;
+            if (regex.test(src)) {
+                src = src.replace(regex, `$1\n        ${guard}$2`);
+                fs.writeFileSync(fontkitPath, src);
+                delete require.cache[fontkitPath];
+            } else {
+                console.warn("Could not patch fontkit: getAnchor pattern not found.");
+            }
         }
-    } catch (_) { /* fontkit layout patch optional */ }
+    } catch (err) {
+        console.error("Fontkit layout patch failed:", err.message);
+    }
 })();
 
 const FONT_HI = path.join(__dirname, '../assets/fonts/NotoSansDevanagari-Regular.ttf');
