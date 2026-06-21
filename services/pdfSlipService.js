@@ -266,11 +266,11 @@ const generateSlipPDF = async (appointment) => {
             // ── HEADER BANNER ─────────────────────────────────────────────────
             doc.rect(0, 0, PAGE_W, 110).fill(C.brand);
 
-            // Logo — project public folder, then common local dev path
+            // Logo — look in backend's own public folder first (works on all environments)
             const logoCandidates = [
                 path.join(__dirname, '../public/logo.png'),
+                path.join(__dirname, '../../public/logo.png'),
                 path.join(__dirname, '../../BHRIBodhgaya-main/public/logo.png'),
-                'C:/Users/pawan/Downloads/BHRIBodhgaya-main (1)/BHRIBodhgaya-main/public/logo.png'
             ];
             const logoPath = logoCandidates.find(p => fs.existsSync(p));
             const hasLogo = Boolean(logoPath);
