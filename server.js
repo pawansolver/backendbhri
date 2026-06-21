@@ -26,12 +26,13 @@ const noticeRoutes = require('./routes/noticeRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const facultyRoutes = require('./routes/facultyRoutes');
+const newsTickerRoutes = require('./routes/newsTickerRoutes');
 
 const app = express();
 
 // Middleware
 app.use(cors({
-    origin: [ "https://bhrimedicalcollege.com" , "https://www.bhrimedicalcollege.com" , "https://admin.bhrimedicalcollege.com" ],
+    origin: [ "https://bhrimedicalcollege.com" , "https://www.bhrimedicalcollege.com" , "https://admin.bhrimedicalcollege.com", "http://localhost:3000", "http://localhost:3001" ],
     credentials: true,
 }));
 app.use(express.json());
@@ -54,6 +55,7 @@ app.use('/api/notices', noticeRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/faculty', facultyRoutes);
+app.use('/api/news-tickers', newsTickerRoutes);
 
 // Request logger for debugging
 app.use('/api', (req, res, next) => {

@@ -10,6 +10,7 @@ const Notification = require('./Notification');
 const Notice = require('./Notice');
 const Announcement = require('./Announcement');
 const Event = require('./Event');
+const NewsTicker = require('./NewsTicker');
 
 // Department <-> Doctor
 Department.hasMany(Doctor, { foreignKey: 'departmentId', as: 'doctors' });
@@ -47,4 +48,5 @@ module.exports = {
     Notice,
     Announcement,
     Event,
+    NewsTicker,
 };
